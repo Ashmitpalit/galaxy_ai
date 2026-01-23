@@ -6,6 +6,16 @@ class ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = ClerkAuth.userOf(context);
+    
+    if (user == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final email = user.emailAddresses?.firstOrNull?.emailAddress;
+    final username = user.username ?? email?.split('@').first ?? 'User';
+    final handle = user.username != null ? '@${user.username}' : (email ?? '');
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -14,25 +24,30 @@ class ProfileHeader extends StatelessWidget {
         CircleAvatar(
           radius: 60,
           backgroundColor: Colors.grey[200],
-          child: const Text(
-            'U',
-            style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
-          ),
+          backgroundImage: user.imageUrl != null 
+              ? NetworkImage(user.imageUrl!) 
+              : null,
+          child: user.imageUrl == null
+              ? Text(
+                  username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                  style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+                )
+              : null,
         ),
         const SizedBox(height: 16),
         // Name
-        const Text(
-          'Username',
-          style: TextStyle(
+        Text(
+          user.name.isNotEmpty ? user.name : username,
+          style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
         // Handle
-        const Text(
-          '@username',
-          style: TextStyle(
+        Text(
+          handle,
+          style: const TextStyle(
             color: Colors.grey,
             fontSize: 16,
           ),

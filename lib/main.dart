@@ -5,7 +5,7 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 
 // TODO: Replace with your actual Clerk Publishable Key
-const String clerkPublishableKey = 'pk_test_PLACEHOLDER_KEY';
+const String clerkPublishableKey = 'pk_test_ZmxleGlibGUtbGFtYi00OS5jbGVyay5hY2NvdW50cy5kZXYk';
 
 void main() {
   runApp(
