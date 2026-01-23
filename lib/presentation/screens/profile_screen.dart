@@ -48,7 +48,7 @@ class ProfileScreen extends StatelessWidget {
 
     return Scaffold(
       body: DefaultTabController(
-        length: 2,
+        length: 3, // Pins, Boards, Collages
         child: NestedScrollView(
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
@@ -64,9 +64,11 @@ class ProfileScreen extends StatelessWidget {
                     unselectedLabelColor: Colors.grey,
                     indicatorColor: Colors.black,
                     indicatorWeight: 3,
+                    labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     tabs: [
-                      Tab(text: 'Created'),
-                      Tab(text: 'Saved'),
+                      Tab(text: 'Pins'),
+                      Tab(text: 'Boards'),
+                      Tab(text: 'Collages'),
                     ],
                   ),
                 ),
@@ -76,27 +78,162 @@ class ProfileScreen extends StatelessWidget {
           },
           body: TabBarView(
             children: [
-              MasonryGrid(
-                photos: mockPhotos,
-                isLoading: false,
-              ),
-              // Saved / Collections Tab
-              GridView.builder(
-                padding: const EdgeInsets.all(8),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.75,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
+              // Pins Tab
+               _buildContentTab(context, mockPhotos, true),
+              // Boards Tab
+               _buildBoardsTab(mockCollections),
+              // Collages Tab
+               const Center(child: Text('No collages yet')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContentTab(BuildContext context, List<PhotoModel> photos, bool isPins) {
+    return Column(
+      children: [
+        // Search Bar & Filter
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.search, color: Colors.grey),
+                      SizedBox(width: 8),
+                      Text(
+                        'Search your saved ideas',
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
+                      ),
+                    ],
+                  ),
                 ),
-                itemCount: mockCollections.length,
-                itemBuilder: (context, index) {
-                  return CollectionCard(collection: mockCollections[index]);
-                },
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(Icons.add, size: 30),
               ),
             ],
           ),
         ),
+        // Filter Chips
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              _buildFilterChip('Group'),
+              const SizedBox(width: 8),
+              _buildFilterChip('Archived'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Grid
+        Expanded(
+          child: MasonryGrid(
+            photos: photos,
+            isLoading: false,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBoardsTab(List<CollectionModel> collections) {
+     return Column(
+      children: [
+         // Search Bar & Filter (Duplicated for tab consistency, or could receive as param)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.search, color: Colors.grey),
+                      SizedBox(width: 8),
+                      Text(
+                        'Search your saved ideas',
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(Icons.add, size: 30),
+              ),
+            ],
+          ),
+        ),
+        // Filter Chips
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              _buildFilterChip('Group'),
+              const SizedBox(width: 8),
+              _buildFilterChip('Archived'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+         Expanded(
+           child: GridView.builder(
+            padding: const EdgeInsets.all(8),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.75,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: collections.length,
+            itemBuilder: (context, index) {
+              return CollectionCard(collection: collections[index]);
+            },
+          ),
+         ),
+      ],
+     );
+  }
+
+  Widget _buildFilterChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          if (label == 'Group') ...[
+             const Icon(Icons.swap_vert, size: 16),
+             const SizedBox(width: 4),
+          ],
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }

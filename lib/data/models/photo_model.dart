@@ -6,6 +6,7 @@ class PhotoModel {
   final String photographer;
   final String? photographerUrl;
   final String avgColor;
+  final String? alt;
   final PhotoSrc src;
   
   PhotoModel({
@@ -16,6 +17,7 @@ class PhotoModel {
     required this.photographer,
     this.photographerUrl,
     required this.avgColor,
+    this.alt,
     required this.src,
   });
   
@@ -28,6 +30,7 @@ class PhotoModel {
       photographer: json['photographer'] as String,
       photographerUrl: json['photographer_url'] as String?,
       avgColor: json['avg_color'] as String? ?? '#000000',
+      alt: json['alt'] as String?,
       src: PhotoSrc.fromJson(json['src'] as Map<String, dynamic>),
     );
   }
@@ -41,6 +44,7 @@ class PhotoModel {
       'photographer': photographer,
       'photographer_url': photographerUrl,
       'avg_color': avgColor,
+      'alt': alt,
       'src': src.toJson(),
     };
   }

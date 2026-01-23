@@ -1,6 +1,8 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiConstants {
   // Pexels API
-  static const String pexelsApiKey = 'uB3H6vDhbMQrLYmMkLt0AXY8q2lUkUCAXiuc9jEE2GpUpNndgBFUCCHd';
+  static String get pexelsApiKey => dotenv.env['PEXELS_API_KEY'] ?? '';
   static const String pexelsBaseUrl = 'https://api.pexels.com/v1';
   
   // Endpoints

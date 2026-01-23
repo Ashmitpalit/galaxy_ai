@@ -4,14 +4,15 @@ import 'package:clerk_flutter/clerk_flutter.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 
-// TODO: Replace with your actual Clerk Publishable Key
-const String clerkPublishableKey = 'pk_test_ZmxleGlibGUtbGFtYi00OS5jbGVyay5hY2NvdW50cy5kZXYk';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+void main() async {
+  await dotenv.load(fileName: ".env");
+  
   runApp(
     ClerkAuth(
       config: ClerkAuthConfig(
-        publishableKey: clerkPublishableKey,
+        publishableKey: dotenv.env['CLERK_PUBLISHABLE_KEY']!,
       ),
       child: const ProviderScope(child: MyApp()),
     ),

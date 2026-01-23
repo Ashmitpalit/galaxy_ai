@@ -6,6 +6,7 @@ import '../../presentation/screens/search_screen.dart';
 import '../../presentation/screens/pin_detail_screen.dart';
 import '../../presentation/screens/profile_screen.dart';
 import '../../presentation/widgets/scaffold_with_navbar.dart';
+import '../../presentation/screens/messages_screen.dart';
 
 import 'package:clerk_flutter/clerk_flutter.dart';
 import '../../presentation/screens/auth_screen.dart';
@@ -78,9 +79,7 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: '/messages',
-              builder: (context, state) => const Scaffold(
-                body: Center(child: Text('Messages Screen Placeholder')),
-              ),
+              builder: (context, state) => const MessagesScreen(),
             ),
           ],
         ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/ui_constants.dart';
 
 import '../providers/photo_providers.dart';
+import '../providers/user_preferences_providers.dart';
 import '../widgets/masonry_grid.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -32,6 +33,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _performSearch(String query) {
     if (query.trim().isNotEmpty) {
       ref.read(searchPhotosProvider.notifier).search(query.trim());
+      // Record search history for Home Tabs
+      ref.read(searchHistoryProvider.notifier).addSearch(query.trim());
     }
   }
   
@@ -41,10 +44,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         title: Container(
           height: UIConstants.searchBarHeight,
           decoration: BoxDecoration(
@@ -58,15 +57,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             decoration: InputDecoration(
               hintText: 'Search for ideas',
               prefixIcon: const Icon(Icons.search, color: Colors.grey),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_searchController.text.isNotEmpty)
+                    IconButton(
                       icon: const Icon(Icons.clear, color: Colors.grey),
                       onPressed: () {
                         _searchController.clear();
                         setState(() {});
                       },
-                    )
-                  : null,
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.camera_alt, color: Colors.black),
+                    onPressed: () {
+                      // Camera functionality placeholder
+                    },
+                  ),
+                ],
+              ),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(vertical: 14),
             ),

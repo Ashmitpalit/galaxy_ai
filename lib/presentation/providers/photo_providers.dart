@@ -14,21 +14,31 @@ final photoRepositoryProvider = Provider<PhotoRepository>((ref) {
   return PhotoRepositoryImpl(ref.watch(pexelsApiServiceProvider));
 });
 
-// Curated Photos State Notifier
-class CuratedPhotosNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
+// Category State
+final selectedCategoryProvider = StateProvider<String>((ref) => 'All');
+
+// Home Feed State Notifier
+class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
   final PhotoRepository _repository;
+  final String _category;
   int _currentPage = 1;
   List<PhotoModel> _allPhotos = [];
   bool _hasMore = true;
   
-  CuratedPhotosNotifier(this._repository) : super(const AsyncValue.loading()) {
+  HomeFeedNotifier(this._repository, this._category) : super(const AsyncValue.loading()) {
     loadInitialPhotos();
   }
   
   Future<void> loadInitialPhotos() async {
     state = const AsyncValue.loading();
     try {
-      final photos = await _repository.getCuratedPhotos(page: 1);
+      final List<PhotoModel> photos;
+      if (_category == 'All') {
+        photos = await _repository.getCuratedPhotos(page: 1);
+      } else {
+        photos = await _repository.searchPhotos(query: _category, page: 1);
+      }
+      
       _allPhotos = photos;
       _currentPage = 1;
       _hasMore = photos.isNotEmpty;
@@ -43,7 +53,16 @@ class CuratedPhotosNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> 
     
     try {
       _currentPage++;
-      final newPhotos = await _repository.getCuratedPhotos(page: _currentPage);
+      final List<PhotoModel> newPhotos;
+      
+      if (_category == 'All') {
+        newPhotos = await _repository.getCuratedPhotos(page: _currentPage);
+      } else {
+        newPhotos = await _repository.searchPhotos(
+          query: _category,
+          page: _currentPage,
+        );
+      }
       
       if (newPhotos.isEmpty) {
         _hasMore = false;
@@ -53,7 +72,6 @@ class CuratedPhotosNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> 
       }
     } catch (error) {
       _currentPage--;
-      // Don't update state on pagination error, just silently fail
     }
   }
   
@@ -62,8 +80,9 @@ class CuratedPhotosNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> 
   }
 }
 
-final curatedPhotosProvider = StateNotifierProvider<CuratedPhotosNotifier, AsyncValue<List<PhotoModel>>>((ref) {
-  return CuratedPhotosNotifier(ref.watch(photoRepositoryProvider));
+final homeFeedProvider = StateNotifierProvider.autoDispose<HomeFeedNotifier, AsyncValue<List<PhotoModel>>>((ref) {
+  final category = ref.watch(selectedCategoryProvider);
+  return HomeFeedNotifier(ref.watch(photoRepositoryProvider), category);
 });
 
 // Search Photos State Notifier
