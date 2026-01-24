@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:clerk_flutter/clerk_flutter.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 
@@ -10,12 +9,7 @@ void main() async {
   await dotenv.load(fileName: ".env");
   
   runApp(
-    ClerkAuth(
-      config: ClerkAuthConfig(
-        publishableKey: dotenv.env['CLERK_PUBLISHABLE_KEY']!,
-      ),
-      child: const ProviderScope(child: MyApp()),
-    ),
+    const ProviderScope(child: MyApp()),
   );
 }
 
@@ -25,7 +19,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Pinterest Clone',
+      title: 'Pinterest',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

@@ -8,38 +8,9 @@ import '../../presentation/screens/profile_screen.dart';
 import '../../presentation/widgets/scaffold_with_navbar.dart';
 import '../../presentation/screens/messages_screen.dart';
 
-import 'package:clerk_flutter/clerk_flutter.dart';
-import '../../presentation/screens/auth_screen.dart';
-
 final router = GoRouter(
   initialLocation: '/',
-  redirect: (context, state) {
-    // Check if user is authenticated
-    final authState = ClerkAuth.of(context);
-    final isSignedIn = authState.isSignedIn; // Accessing the signed-in state
-    
-    // Define public and private routes
-    final isGoingToProfile = state.uri.path == '/profile';
-    final isGoingToAuth = state.uri.path == '/auth';
-
-    // If not signed in and trying to go to profile, redirect to auth
-    if (!isSignedIn && isGoingToProfile) {
-      return '/auth';
-    }
-
-    // If signed in and trying to go to auth, redirect to profile (or home)
-    if (isSignedIn && isGoingToAuth) {
-      return '/profile';
-    }
-
-    // No redirect
-    return null;
-  },
   routes: [
-    GoRoute(
-      path: '/auth',
-      builder: (context, state) => const AuthScreen(),
-    ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
         return ScaffoldWithNavBar(navigationShell: navigationShell);
@@ -74,7 +45,7 @@ final router = GoRouter(
             ),
           ],
         ),
-        // Tab 3: Messages (Placeholder)
+        // Tab 3: Messages
         StatefulShellBranch(
           routes: [
             GoRoute(

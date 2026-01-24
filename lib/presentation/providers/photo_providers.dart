@@ -36,6 +36,8 @@ class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
   }
   
   Future<void> loadInitialPhotos() async {
+    if (!mounted) return; // Prevent updates after dispose
+    
     state = const AsyncValue.loading();
     try {
       final List<PhotoModel> photos;
@@ -48,16 +50,24 @@ class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
         photos = await _repository.searchPhotos(query: _category, page: 1);
       }
       
+      if (!mounted) return; // Check again after async operation
+      
       _allPhotos = photos;
       _currentPage = 1;
       _hasMore = photos.isNotEmpty;
       state = AsyncValue.data(_allPhotos);
     } catch (error, stackTrace) {
+      if (!mounted) return;
       state = AsyncValue.error(error, stackTrace);
     }
   }
   
   Future<List<PhotoModel>> _fetchPersonalizedPhotos({required int page}) async {
+    // Temporarily disabled personalization for debugging
+    // TODO: Re-enable after fixing the loading issue
+    return await _repository.getCuratedPhotos(page: page);
+    
+    /* ORIGINAL PERSONALIZATION CODE - COMMENTED OUT
     // If user has search history, create personalized mix
     if (_topSearchTerms.isNotEmpty) {
       final List<PhotoModel> mixedPhotos = [];
@@ -93,10 +103,11 @@ class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
     
     // Fallback to curated photos for new users or if personalization fails
     return await _repository.getCuratedPhotos(page: page);
+    */
   }
   
   Future<void> loadMore() async {
-    if (!_hasMore || state.isLoading) return;
+    if (!_hasMore || state.isLoading || !mounted) return;
     
     try {
       _currentPage++;
@@ -110,6 +121,8 @@ class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
           page: _currentPage,
         );
       }
+      
+      if (!mounted) return; // Check after async operation
       
       if (newPhotos.isEmpty) {
         _hasMore = false;
