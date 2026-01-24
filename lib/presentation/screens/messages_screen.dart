@@ -22,29 +22,55 @@ class MessagesScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Placeholder Banner
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 24),
+            decoration: BoxDecoration(
+              color: Colors.amber[50],
+              border: Border.all(color: Colors.amber[700]!, width: 2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.amber[900], size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'This is a placeholder page with sample content',
+                    style: TextStyle(
+                      color: Colors.amber[900],
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
           // Messages Section
           _buildSectionHeader('Messages', 'See all'),
           _buildMessageItem(
-            'Ashmit',
-            'You: Gargi shared off Pinterest',
-            '4mo',
-            'A',
-            Colors.green[100]!,
+            'Emma Wilson',
+            'You: Thanks for sharing that idea!',
+            '2h',
+            'E',
+            Colors.purple[100]!,
           ),
           _buildMessageItem(
-            'Piyush Kumar Rai',
-            'Tai click Hye jaye',
-            '1y',
-            'P',
-            Colors.orange[100]!,
-            imageUrl: 'https://picsum.photos/100?random=1',
+            'Design Studio',
+            'Check out our latest collection',
+            '5h',
+            'D',
+            Colors.blue[100]!,
           ),
           _buildMessageItem(
-            'Pinterest India',
+            'Creative Hub',
             'Sent a Pin!',
-            '4y',
-            'P',
-            Colors.red,
+            '1d',
+            'C',
+            const Color(0xFFE60023),
             isPinterest: true,
           ),
           
@@ -60,31 +86,31 @@ class MessagesScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _buildUpdateItem(
-            'Try searching for more ideas to get inspired',
-            '17h',
+            'Discover new ideas for your next project',
+            '3h',
           ),
           _buildUpdateItem(
-            'Still searching? Explore ideas related to Blue Shapes To Add In Background',
-            '18h',
+            'Trending: Modern minimalist interior design',
+            '6h',
           ),
           _buildUpdateItem(
-            'Ideas you\'ve been eyeing',
-            '1d',
+            'Ideas you might like',
+            '12h',
             isIdea: true,
-            imageUrls: ['https://picsum.photos/100?random=2'],
+            imageUrls: ['https://picsum.photos/200/300?random=10'],
           ),
           _buildUpdateItem(
-            'Try searching for more ideas to get inspired',
-            '2d',
+            'Popular in your area: Home decor inspiration',
+            '1d',
           ),
            _buildUpdateItem(
-            'Ideas you\'ve been eyeing',
+            'Saved for later',
             '2d',
             isIdea: true,
             imageUrls: [
-              'https://picsum.photos/100?random=3', 
-              'https://picsum.photos/100?random=4',
-              'https://picsum.photos/100?random=5',
+              'https://picsum.photos/200/300?random=11', 
+              'https://picsum.photos/200/300?random=12',
+              'https://picsum.photos/200/300?random=13',
               ],
           ),
         ],
@@ -127,6 +153,7 @@ class MessagesScreen extends StatelessWidget {
     Color color, {
     String? imageUrl,
     bool isPinterest = false,
+    bool hasUnread = false,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -139,7 +166,7 @@ class MessagesScreen extends StatelessWidget {
             child: imageUrl == null
                 ? (isPinterest
                     ? const Icon(Icons.push_pin, color: Colors.white, size: 32)
-                    : Text(initial, style: const TextStyle(color: Colors.black87, fontSize: 20)))
+                    : Text(initial, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)))
                 : null,
           ),
           const SizedBox(width: 16),
@@ -161,9 +188,25 @@ class MessagesScreen extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            time,
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                time,
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              if (hasUnread) ...[
+                const SizedBox(height: 4),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE60023),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

@@ -68,6 +68,24 @@ class SearchHistoryNotifier extends StateNotifier<Map<String, int>> {
     
     return topUserTerms;
   }
+
+  List<String> getRecentSearches(int limit) {
+    if (state.isEmpty) return [];
+    
+    // For chronological order, we'd need timestamps
+    // For now, return by frequency as a proxy (most searched = most recent usage pattern)
+    final sortedEntries = state.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+      
+    return sortedEntries.map((e) => e.key).take(limit).toList();
+  }
+
+  Future<void> clearAll() async {
+    if (_prefs == null) return;
+    
+    state = {};
+    await _prefs.setString(_key, jsonEncode({}));
+  }
 }
 
 // Discovered Tags Notifier (Live Trends)

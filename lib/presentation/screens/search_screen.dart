@@ -41,6 +41,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchPhotosProvider);
+    final searchHistory = ref.watch(searchHistoryProvider.notifier);
+    final recentSearches = searchHistory.getRecentSearches(10);
+    final personalizedPredictions = ref.watch(homeTabsProvider).where((tag) => tag != 'All').take(6).toList();
     
     return Scaffold(
       appBar: AppBar(
@@ -85,79 +88,153 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
         ),
       ),
-      body: searchState.when(
-        data: (photos) {
-          if (photos.isEmpty && _searchController.text.isNotEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search_off, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'No results found',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
+      body: Column(
+        children: [
+          // Search History Dropdown (shown when focused)
+          if (_focusNode.hasFocus && recentSearches.isNotEmpty)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
-            );
-          }
-          
-          if (photos.isEmpty) {
-            return Center(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.search, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Search for ideas',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Recent Searches',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            await searchHistory.clearAll();
+                            setState(() {});
+                          },
+                          child: const Text(
+                            'Clear All',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 24),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      _buildSuggestionChip('Nature'),
-                      _buildSuggestionChip('Architecture'),
-                      _buildSuggestionChip('Food'),
-                      _buildSuggestionChip('Travel'),
-                      _buildSuggestionChip('Fashion'),
-                      _buildSuggestionChip('Technology'),
-                    ],
-                  ),
+                  ...recentSearches.map((search) => InkWell(
+                    onTap: () {
+                      _searchController.text = search;
+                      _performSearch(search);
+                      _focusNode.unfocus();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.history, size: 20, color: Colors.grey),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              search,
+                              style: const TextStyle(fontSize: 15),
+                            ),
+                          ),
+                          const Icon(Icons.north_west, size: 16, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  )),
+                  const SizedBox(height: 8),
                 ],
               ),
-            );
-          }
+            ),
           
-          return MasonryGrid(
-            photos: photos,
-            onLoadMore: () {
-              ref.read(searchPhotosProvider.notifier).loadMore();
-            },
-          );
-        },
-        loading: () => MasonryGrid(
-          photos: const [],
-          isLoading: true,
-        ),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.grey),
-              const SizedBox(height: 16),
-              Text(
-                error.toString(),
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
+          // Main Content
+          Expanded(
+            child: searchState.when(
+              data: (photos) {
+                if (photos.isEmpty && _searchController.text.isNotEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'No results found',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                
+                if (photos.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.search, size: 64, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Search for ideas',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 24),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: personalizedPredictions.map((tag) => _buildSuggestionChip(tag)).toList(),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                
+                return MasonryGrid(
+                  photos: photos,
+                  onLoadMore: () {
+                    ref.read(searchPhotosProvider.notifier).loadMore();
+                  },
+                );
+              },
+              loading: () => MasonryGrid(
+                photos: const [],
+                isLoading: true,
               ),
-            ],
+              error: (error, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    Text(
+                      error.toString(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -170,7 +247,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _performSearch(label);
       },
       backgroundColor: Colors.grey[200],
-      labelStyle: const TextStyle(color: Colors.black87),
+      labelStyle: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     );
   }
 }
