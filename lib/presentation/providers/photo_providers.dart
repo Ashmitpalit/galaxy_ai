@@ -3,6 +3,7 @@ import '../../data/datasources/pexels_api_service.dart';
 import '../../data/repositories/photo_repository_impl.dart';
 import '../../domain/repositories/photo_repository.dart';
 import '../../data/models/photo_model.dart';
+import 'user_preferences_providers.dart';
 
 // API Service Provider
 final pexelsApiServiceProvider = Provider<PexelsApiService>((ref) {
@@ -21,11 +22,16 @@ final selectedCategoryProvider = StateProvider<String>((ref) => 'All');
 class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
   final PhotoRepository _repository;
   final String _category;
+  final List<String> _topSearchTerms;
   int _currentPage = 1;
   List<PhotoModel> _allPhotos = [];
   bool _hasMore = true;
   
-  HomeFeedNotifier(this._repository, this._category) : super(const AsyncValue.loading()) {
+  HomeFeedNotifier(
+    this._repository,
+    this._category,
+    this._topSearchTerms,
+  ) : super(const AsyncValue.loading()) {
     loadInitialPhotos();
   }
   
@@ -33,9 +39,12 @@ class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
     state = const AsyncValue.loading();
     try {
       final List<PhotoModel> photos;
+      
       if (_category == 'All') {
-        photos = await _repository.getCuratedPhotos(page: 1);
+        // Personalized feed based on search history
+        photos = await _fetchPersonalizedPhotos(page: 1);
       } else {
+        // Category-specific feed
         photos = await _repository.searchPhotos(query: _category, page: 1);
       }
       
@@ -48,6 +57,44 @@ class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
     }
   }
   
+  Future<List<PhotoModel>> _fetchPersonalizedPhotos({required int page}) async {
+    // If user has search history, create personalized mix
+    if (_topSearchTerms.isNotEmpty) {
+      final List<PhotoModel> mixedPhotos = [];
+      
+      // Fetch photos from top 3 search terms
+      final termsToUse = _topSearchTerms.take(3).toList();
+      
+      for (final term in termsToUse) {
+        try {
+          // Fetch a few photos from each term
+          final photos = await _repository.searchPhotos(
+            query: term,
+            page: page,
+          );
+          
+          // Take a portion from each category
+          final portion = (photos.length / termsToUse.length).ceil();
+          mixedPhotos.addAll(photos.take(portion));
+        } catch (e) {
+          // Continue with other terms if one fails
+          continue;
+        }
+      }
+      
+      // Shuffle to mix the categories
+      mixedPhotos.shuffle();
+      
+      // If we got personalized content, return it
+      if (mixedPhotos.isNotEmpty) {
+        return mixedPhotos;
+      }
+    }
+    
+    // Fallback to curated photos for new users or if personalization fails
+    return await _repository.getCuratedPhotos(page: page);
+  }
+  
   Future<void> loadMore() async {
     if (!_hasMore || state.isLoading) return;
     
@@ -56,7 +103,7 @@ class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
       final List<PhotoModel> newPhotos;
       
       if (_category == 'All') {
-        newPhotos = await _repository.getCuratedPhotos(page: _currentPage);
+        newPhotos = await _fetchPersonalizedPhotos(page: _currentPage);
       } else {
         newPhotos = await _repository.searchPhotos(
           query: _category,
@@ -82,7 +129,18 @@ class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
 
 final homeFeedProvider = StateNotifierProvider.autoDispose<HomeFeedNotifier, AsyncValue<List<PhotoModel>>>((ref) {
   final category = ref.watch(selectedCategoryProvider);
-  return HomeFeedNotifier(ref.watch(photoRepositoryProvider), category);
+  
+  // Get top search terms for personalization
+  final searchHistoryNotifier = ref.watch(searchHistoryProvider.notifier);
+  // Watch the search history state to trigger rebuild when it changes
+  ref.watch(searchHistoryProvider);
+  final topSearchTerms = searchHistoryNotifier.getTopSearches(5);
+  
+  return HomeFeedNotifier(
+    ref.watch(photoRepositoryProvider),
+    category,
+    topSearchTerms,
+  );
 });
 
 // Search Photos State Notifier
