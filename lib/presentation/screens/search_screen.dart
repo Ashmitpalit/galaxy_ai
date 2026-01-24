@@ -68,6 +68,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       icon: const Icon(Icons.clear, color: Colors.grey),
                       onPressed: () {
                         _searchController.clear();
+                        // Clear search results - go back to empty state
+                        ref.read(searchPhotosProvider.notifier).search('');
                         setState(() {});
                       },
                     ),
