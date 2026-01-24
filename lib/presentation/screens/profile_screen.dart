@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../../data/models/photo_model.dart';
 import '../../data/models/collection_model.dart';
@@ -8,6 +10,21 @@ import '../widgets/collection_card.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Wrap ONLY profile screen with ClerkAuth
+    return ClerkAuth(
+      config: ClerkAuthConfig(
+        publishableKey: dotenv.env['CLERK_PUBLISHABLE_KEY']!,
+      ),
+      child: const _ProfileContent(),
+    );
+  }
+}
+
+class _ProfileContent extends StatelessWidget {
+  const _ProfileContent();
 
   @override
   Widget build(BuildContext context) {

@@ -7,15 +7,18 @@ class ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = ClerkAuth.userOf(context);
+    final isSignedIn = user != null;
     
-    if (user == null) {
-      return const Center(child: CircularProgressIndicator());
+    if (!isSignedIn) {
+      // Show login UI when not signed in
+      return _buildLoginUI(context);
     }
-
+    
+    // Show user profile when signed in
     final email = user.emailAddresses?.firstOrNull?.emailAddress;
     final username = user.username ?? email?.split('@').first ?? 'User';
     final handle = user.username != null ? '@${user.username}' : (email ?? '');
-
+    
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -224,6 +227,28 @@ class ProfileHeader extends StatelessWidget {
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildLoginUI(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 40),
+          const Text(
+            'Sign in to Pinterest',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 32),
+          const ClerkAuthentication(),
+          const SizedBox(height: 40),
         ],
       ),
     );
