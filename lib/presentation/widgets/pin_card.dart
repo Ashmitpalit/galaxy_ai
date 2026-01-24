@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/ui_constants.dart';
 import '../../data/models/photo_model.dart';
 import 'pin_shimmer.dart';
+import 'photo_context_menu.dart';
 
-class PinCard extends StatelessWidget {
+class PinCard extends StatefulWidget {
   final PhotoModel photo;
   final double aspectRatio;
   
@@ -14,7 +16,49 @@ class PinCard extends StatelessWidget {
     required this.photo,
     this.aspectRatio = 0.7,
   });
-  
+
+  @override
+  State<PinCard> createState() => _PinCardState();
+}
+
+class _PinCardState extends State<PinCard> {
+  OverlayEntry? _overlayEntry;
+  final GlobalKey _imageKey = GlobalKey();
+
+  void _showContextMenu(BuildContext context, Offset globalPosition) {
+    // Trigger haptic feedback
+    HapticFeedback.mediumImpact();
+
+    // Get the image's render box to calculate size and position
+    final RenderBox? renderBox = _imageKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final imageSize = renderBox.size;
+    final imagePosition = renderBox.localToGlobal(Offset.zero);
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => PhotoContextMenu(
+        photo: widget.photo,
+        position: imagePosition,
+        imageSize: imageSize,
+        onDismiss: _removeContextMenu,
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _removeContextMenu() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
+  void dispose() {
+    _removeContextMenu();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -22,18 +66,22 @@ class PinCard extends StatelessWidget {
       children: [
         GestureDetector(
           onTap: () {
-            context.push('/pin/${photo.id}', extra: photo);
+            context.push('/pin/${widget.photo.id}', extra: widget.photo);
+          },
+          onLongPressStart: (details) {
+            _showContextMenu(context, details.globalPosition);
           },
           child: Hero(
-            tag: 'photo_${photo.id}',
+            tag: 'photo_${widget.photo.id}',
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16), // Updated to match screenshot
+              key: _imageKey,
+              borderRadius: BorderRadius.circular(16),
               child: CachedNetworkImage(
-                imageUrl: photo.src.medium,
+                imageUrl: widget.photo.src.medium,
                 memCacheWidth: 700,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => PinShimmer(
-                  height: 200 + (photo.height / photo.width) * 50,
+                  height: 200 + (widget.photo.height / widget.photo.width) * 50,
                 ),
                 errorWidget: (context, url, error) => Container(
                   color: Colors.grey[300],
@@ -45,7 +93,15 @@ class PinCard extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         InkWell(
-          onTap: () {},
+          onTap: () {
+            // Get the position of the three-dot button
+            final RenderBox? buttonBox = context.findRenderObject() as RenderBox?;
+            if (buttonBox != null) {
+              final buttonPosition = buttonBox.localToGlobal(Offset.zero);
+              // Trigger the same context menu as long-press
+              _showContextMenu(context, buttonPosition);
+            }
+          },
           child: const Padding(
             padding: EdgeInsets.all(4.0),
             child: Icon(Icons.more_horiz, size: 20, color: Colors.black),
