@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
 import '../../core/theme/app_theme.dart';
 
 class ScaffoldWithNavBar extends StatelessWidget {
@@ -57,20 +58,69 @@ class ScaffoldWithNavBar extends StatelessWidget {
   }
 
   Widget _buildProfileIcon(BuildContext context, bool isSelected) {
-     // You can eventually plug in the real user image here if available globally
-     // For now, consistent with the rest of the app, we use a generic person icon if no user
-     // But ideally this should be the user's avatar.
-     // We'll stick to icons for now as per the plan, or simple Container.
-     return Container(
-       width: 24,
-       height: 24,
-       decoration: BoxDecoration(
-         shape: BoxShape.circle,
-         color: Colors.grey[200],
-         border: isSelected ? Border.all(color: Colors.black, width: 2) : null,
-       ),
-       child: const Icon(Icons.person, size: 16, color: Colors.grey),
-     );
+    // Try to get Clerk user - this will be null if ClerkAuth is not in the widget tree
+    // (which happens on non-profile screens)
+    try {
+      final user = ClerkAuth.userOf(context);
+      
+      if (user != null) {
+        // User is logged in
+        if (user.imageUrl != null) {
+          // Show profile picture
+          return Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: isSelected ? Border.all(color: Colors.black, width: 2.5) : null,
+              image: DecorationImage(
+                image: NetworkImage(user.imageUrl!),
+                fit: BoxFit.cover,
+              ),
+            ),
+          );
+        } else {
+          // Show first letter of name
+          final email = user.emailAddresses?.firstOrNull?.emailAddress;
+          final username = user.username ?? email?.split('@').first ?? 'U';
+          final initial = username.isNotEmpty ? username[0].toUpperCase() : 'U';
+          
+          return Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.grey[300],
+              border: isSelected ? Border.all(color: Colors.black, width: 2.5) : null,
+            ),
+            child: Center(
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // ClerkAuth not in tree or error - show generic icon
+    }
+    
+    // Not logged in - show generic icon
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.grey[200],
+        border: isSelected ? Border.all(color: Colors.black, width: 2.5) : null,
+      ),
+      child: const Icon(Icons.person, size: 18, color: Colors.grey),
+    );
   }
 
   void _onTap(BuildContext context, int index) {
