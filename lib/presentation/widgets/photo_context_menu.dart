@@ -2,14 +2,19 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:math' as math;
 import '../../data/models/photo_model.dart';
+import '../providers/boards_provider.dart';
+import '../providers/saved_pins_provider.dart';
+import 'board_selection_dialog.dart';
 
-class PhotoContextMenu extends StatefulWidget {
+class PhotoContextMenu extends ConsumerStatefulWidget {
   final PhotoModel photo;
   final Offset position;
   final Size imageSize;
   final VoidCallback onDismiss;
+  final String? boardId; // Optional: if provided, unpin from this board only
 
   const PhotoContextMenu({
     super.key,
@@ -17,13 +22,14 @@ class PhotoContextMenu extends StatefulWidget {
     required this.position,
     required this.imageSize,
     required this.onDismiss,
+    this.boardId,
   });
 
   @override
-  State<PhotoContextMenu> createState() => _PhotoContextMenuState();
+  ConsumerState<PhotoContextMenu> createState() => _PhotoContextMenuState();
 }
 
-class _PhotoContextMenuState extends State<PhotoContextMenu>
+class _PhotoContextMenuState extends ConsumerState<PhotoContextMenu>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
@@ -62,23 +68,75 @@ class _PhotoContextMenuState extends State<PhotoContextMenu>
   }
 
   void _handleAction(String action) async {
-    await _controller.reverse();
-    widget.onDismiss();
-
     if (!mounted) return;
 
     switch (action) {
       case 'similar':
+        await _controller.reverse();
+        widget.onDismiss();
         _showSnackBar('Finding similar images...');
         // TODO: Navigate to similar images search
         break;
       case 'share':
+        await _controller.reverse();
+        widget.onDismiss();
         _showSnackBar('Share feature coming soon!');
         // TODO: Implement share functionality
         break;
       case 'save':
-        _showSnackBar('Saved to your collection!');
-        // TODO: Implement save to collection
+        final pinId = widget.photo.id.toString();
+        final isPinned = ref.read(boardsProvider.notifier).isPinSaved(pinId);
+        
+        if (isPinned) {
+          // Unsave logic
+          if (widget.boardId != null) {
+            // Board-specific unpinning: Remove from THIS board only
+            await ref.read(boardsProvider.notifier).removePinFromBoard(widget.boardId!, pinId);
+            
+            // Check if pin still exists in other boards
+            final stillPinned = ref.read(boardsProvider.notifier).isPinSaved(pinId);
+            
+            // If not in any other board, remove from saved pins
+            if (!stillPinned) {
+              await ref.read(savedPinsProvider.notifier).unsavePin(pinId);
+            }
+            
+            // Dismiss after state update
+            await _controller.reverse();
+            widget.onDismiss();
+            
+            if (mounted) {
+              _showSnackBar('Removed from board');
+            }
+          } else {
+            // Global unpinning: Remove from ALL boards
+            final boards = ref.read(boardsProvider.notifier).getBoardsContainingPin(pinId);
+            for (final board in boards) {
+              await ref.read(boardsProvider.notifier).removePinFromBoard(board.id, pinId);
+            }
+            await ref.read(savedPinsProvider.notifier).unsavePin(pinId);
+            
+            // Dismiss after state update
+            await _controller.reverse();
+            widget.onDismiss();
+            
+            if (mounted) {
+              _showSnackBar('Pin removed from all boards');
+            }
+          }
+        } else {
+          // Dismiss first for save action
+          await _controller.reverse();
+          widget.onDismiss();
+          
+          if (mounted) {
+            // Save: Show board selection dialog
+            await showDialog(
+              context: context,
+              builder: (context) => BoardSelectionDialog(photo: widget.photo),
+            );
+          }
+        }
         break;
     }
   }
@@ -206,10 +264,17 @@ class _PhotoContextMenuState extends State<PhotoContextMenu>
       }
     }
     
+    final pinId = widget.photo.id.toString();
+    final isPinned = ref.watch(boardsProvider.notifier).isPinSaved(pinId);
+    
     final buttons = [
       {'icon': Icons.search, 'label': 'Similar', 'action': 'similar'},
       {'icon': Icons.share_outlined, 'label': 'Share', 'action': 'share'},
-      {'icon': Icons.push_pin_outlined, 'label': 'Save', 'action': 'save'},
+      {
+        'icon': isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+        'label': 'Save',
+        'action': 'save'
+      },
     ];
 
     return List.generate(buttons.length, (index) {

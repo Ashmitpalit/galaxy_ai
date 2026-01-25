@@ -9,12 +9,14 @@ class MasonryGrid extends StatefulWidget {
   final List<PhotoModel> photos;
   final VoidCallback? onLoadMore;
   final bool isLoading;
+  final String? boardId; // Optional board ID for context-specific actions
   
   const MasonryGrid({
     super.key,
     required this.photos,
     this.onLoadMore,
     this.isLoading = false,
+    this.boardId,
   });
   
   @override
@@ -57,7 +59,10 @@ class _MasonryGridState extends State<MasonryGrid> {
           return const PinShimmer(height: 250);
         }
         
-        return PinCard(photo: widget.photos[index]);
+        return PinCard(
+          photo: widget.photos[index],
+          boardId: widget.boardId,
+        );
       },
       cacheExtent: 1000,
       physics: const AlwaysScrollableScrollPhysics(

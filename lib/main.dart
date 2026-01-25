@@ -11,11 +11,13 @@ void main() async {
   await dotenv.load(fileName: ".env");
   
   runApp(
-    ClerkAuth(
-      config: ClerkAuthConfig(
-        publishableKey: dotenv.env['CLERK_PUBLISHABLE_KEY']!,
+    ProviderScope(
+      child: ClerkAuth(
+        config: ClerkAuthConfig(
+          publishableKey: dotenv.env['CLERK_PUBLISHABLE_KEY']!,
+        ),
+        child: const MyApp(),
       ),
-      child: const ProviderScope(child: MyApp()),
     ),
   );
 }

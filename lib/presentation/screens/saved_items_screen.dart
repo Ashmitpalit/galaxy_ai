@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/boards_provider.dart';
+import '../providers/saved_pins_provider.dart';
+import '../widgets/masonry_grid.dart';
+import '../widgets/board_collage_cover.dart';
+import '../widgets/delete_board_dialog.dart';
 
-class SavedItemsScreen extends StatefulWidget {
+class SavedItemsScreen extends ConsumerStatefulWidget {
   const SavedItemsScreen({super.key});
 
   @override
-  State<SavedItemsScreen> createState() => _SavedItemsScreenState();
+  ConsumerState<SavedItemsScreen> createState() => _SavedItemsScreenState();
 }
 
-class _SavedItemsScreenState extends State<SavedItemsScreen> with SingleTickerProviderStateMixin {
+class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -198,17 +204,23 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> with SingleTickerPr
   }
 
   Widget _buildPinsTab() {
-    // Empty for now - show nothing
-    return const SizedBox.shrink();
+    final savedPins = ref.watch(savedPinsProvider);
+    final pins = savedPins.values.toList();
+    
+    if (pins.isEmpty) {
+      return const SizedBox.shrink(); // Show nothing when empty
+    }
+    
+    return MasonryGrid(photos: pins);
   }
 
   Widget _buildBoardsTab() {
-    // Mock boards data
-    final boards = [
-      {'name': 'My saves', 'pins': 6, 'image': 'https://picsum.photos/200/300?random=1'},
-      {'name': 'Wallpapers', 'pins': 4, 'image': 'https://picsum.photos/200/300?random=2'},
-      {'name': 'Marvel art', 'pins': 1, 'image': 'https://picsum.photos/200/300?random=3'},
-    ];
+    final boards = ref.watch(boardsProvider);
+    final savedPins = ref.watch(savedPinsProvider);
+
+    if (boards.isEmpty) {
+      return const SizedBox.shrink(); // Show nothing when empty
+    }
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
@@ -221,59 +233,82 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> with SingleTickerPr
       itemCount: boards.length,
       itemBuilder: (context, index) {
         final board = boards[index];
+        
+        // Get up to 3 pin images for collage
+        final imageUrls = board.pinIds
+            .take(3)
+            .map((pinId) => savedPins[pinId]?.src.medium)
+            .where((url) => url != null)
+            .cast<String>()
+            .toList();
+        
         return _buildBoardCard(
-          board['name'] as String,
-          board['pins'] as int,
-          board['image'] as String,
+          board.id,
+          board.name,
+          board.pinIds.length,
+          imageUrls,
         );
       },
     );
   }
 
-  Widget _buildBoardCard(String name, int pinCount, String imageUrl) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: Colors.grey[100],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
+  Widget _buildBoardCard(String boardId, String name, int pinCount, List<String> imageUrls) {
+    return GestureDetector(
+      onTap: () => context.push('/board/$boardId'),
+      onLongPress: () async {
+        final board = ref.read(boardsProvider.notifier).getBoardById(boardId);
+        if (board != null) {
+          final result = await showDialog<bool>(
+            context: context,
+            builder: (context) => DeleteBoardDialog(board: board),
+          );
+          if (result == true && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Board deleted')),
+            );
+          }
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: Colors.grey[100],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: BoardCollageCover(imageUrls: imageUrls),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$pinCount Pin${pinCount == 1 ? '' : 's'}',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
+                  const SizedBox(height: 4),
+                  Text(
+                    '$pinCount Pin${pinCount == 1 ? '' : 's'}',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

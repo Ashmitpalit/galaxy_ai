@@ -10,11 +10,13 @@ import 'photo_context_menu.dart';
 class PinCard extends StatefulWidget {
   final PhotoModel photo;
   final double aspectRatio;
+  final String? boardId; // Optional board ID for context-specific actions
   
   const PinCard({
     super.key,
     required this.photo,
     this.aspectRatio = 0.7,
+    this.boardId,
   });
 
   @override
@@ -42,6 +44,7 @@ class _PinCardState extends State<PinCard> {
         position: imagePosition,
         imageSize: imageSize,
         onDismiss: _removeContextMenu,
+        boardId: widget.boardId, // Pass board ID for context-specific unpinning
       ),
     );
 

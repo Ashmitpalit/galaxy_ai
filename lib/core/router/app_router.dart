@@ -7,6 +7,7 @@ import '../../presentation/screens/pin_detail_screen.dart';
 import '../../presentation/screens/profile_screen.dart';
 import '../../presentation/screens/saved_items_screen.dart';
 import '../../presentation/screens/account_settings_screen.dart';
+import '../../presentation/screens/board_detail_screen.dart';
 import '../../presentation/widgets/scaffold_with_navbar.dart';
 import '../../presentation/screens/messages_screen.dart';
 
@@ -82,6 +83,13 @@ final router = GoRouter(
     GoRoute(
       path: '/profile',
       builder: (context, state) => const ProfileScreen(),
+    ),
+    GoRoute(
+      path: '/board/:id',
+      builder: (context, state) {
+        final boardId = state.pathParameters['id']!;
+        return BoardDetailScreen(boardId: boardId);
+      },
     ),
   ],
 );
