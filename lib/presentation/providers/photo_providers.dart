@@ -63,36 +63,53 @@ class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
   }
   
   Future<List<PhotoModel>> _fetchPersonalizedPhotos({required int page}) async {
-    // Temporarily disabled personalization for debugging
-    // TODO: Re-enable after fixing the loading issue
-    return await _repository.getCuratedPhotos(page: page);
+    // List of trending/popular topics to mix in for variety
+    final trendingTopics = [
+      'nature', 'architecture', 'technology', 'art', 'travel',
+      'food', 'fashion', 'sports', 'music', 'animals',
+      'landscape', 'city', 'ocean', 'mountains', 'sunset',
+      'minimalist', 'abstract', 'vintage', 'modern', 'colorful'
+    ];
     
-    /* ORIGINAL PERSONALIZATION CODE - COMMENTED OUT
     // If user has search history, create personalized mix
     if (_topSearchTerms.isNotEmpty) {
       final List<PhotoModel> mixedPhotos = [];
       
-      // Fetch photos from top 3 search terms
-      final termsToUse = _topSearchTerms.take(3).toList();
+      // Combine user's top searches with random trending topics
+      final userTerms = _topSearchTerms.take(3).toList();
+      
+      // Pick 2 random trending topics that aren't in user's history
+      final randomTopics = (trendingTopics.toList()..shuffle())
+          .where((topic) => !_topSearchTerms.contains(topic))
+          .take(2)
+          .toList();
+      
+      final termsToUse = [...userTerms, ...randomTopics];
+      
+      // Shuffle the order of terms for variety
+      termsToUse.shuffle();
       
       for (final term in termsToUse) {
         try {
-          // Fetch a few photos from each term
+          // Fetch photos from each term
           final photos = await _repository.searchPhotos(
             query: term,
             page: page,
           );
           
-          // Take a portion from each category
-          final portion = (photos.length / termsToUse.length).ceil();
-          mixedPhotos.addAll(photos.take(portion));
+          // Take a portion from each category (randomize the portion size slightly)
+          final basePortion = (photos.length / termsToUse.length).ceil();
+          final randomVariation = (basePortion * 0.3).toInt(); // ±30% variation
+          final portion = basePortion + (randomVariation - (randomVariation ~/ 2));
+          
+          mixedPhotos.addAll(photos.take(portion.clamp(1, photos.length)));
         } catch (e) {
           // Continue with other terms if one fails
           continue;
         }
       }
       
-      // Shuffle to mix the categories
+      // Shuffle to mix the categories and create fresh order each time
       mixedPhotos.shuffle();
       
       // If we got personalized content, return it
@@ -101,9 +118,29 @@ class HomeFeedNotifier extends StateNotifier<AsyncValue<List<PhotoModel>>> {
       }
     }
     
-    // Fallback to curated photos for new users or if personalization fails
-    return await _repository.getCuratedPhotos(page: page);
-    */
+    // For new users or if personalization fails, show randomized curated + trending
+    final List<PhotoModel> fallbackPhotos = [];
+    
+    // Get curated photos
+    final curatedPhotos = await _repository.getCuratedPhotos(page: page);
+    fallbackPhotos.addAll(curatedPhotos.take(15)); // Take first 15 curated
+    
+    // Add some random trending content
+    final randomTopic = (trendingTopics.toList()..shuffle()).first;
+    try {
+      final trendingPhotos = await _repository.searchPhotos(
+        query: randomTopic,
+        page: 1,
+      );
+      fallbackPhotos.addAll(trendingPhotos.take(10)); // Add 10 trending
+    } catch (e) {
+      // If trending fails, just use curated
+    }
+    
+    // Shuffle for variety
+    fallbackPhotos.shuffle();
+    
+    return fallbackPhotos;
   }
   
   Future<void> loadMore() async {
