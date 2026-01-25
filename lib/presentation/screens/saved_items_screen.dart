@@ -17,11 +17,12 @@ class SavedItemsScreen extends ConsumerStatefulWidget {
 
 class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  String _sortOrder = 'Most recent'; // 'Most recent' or 'Oldest first'
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this); // Changed from 3 to 2
   }
 
   @override
@@ -63,7 +64,6 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> with Single
                       tabs: const [
                         Tab(text: 'Pins'),
                         Tab(text: 'Boards'),
-                        Tab(text: 'Collages'),
                       ],
                     ),
                   ),
@@ -71,53 +71,32 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> with Single
               ),
             ),
             const SizedBox(height: 16),
-            // Search bar and filters
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.search, color: Colors.grey),
-                          SizedBox(width: 8),
-                          Text(
-                            'Search your saved ideas',
-                            style: TextStyle(color: Colors.grey, fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
+            // Sort filter only - centered
+            Center(
+              child: GestureDetector(
+                onTap: _showSortOptions,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey[300]!),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.add, color: Colors.black, size: 30),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.swap_vert, size: 16, color: Colors.black),
+                      const SizedBox(width: 4),
+                      Text(
+                        _sortOrder,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Filter chips
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  _buildFilterChip('Sort', hasDropdown: true),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Group'),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Archived'),
-                ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -128,7 +107,6 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> with Single
                 children: [
                   _buildPinsTab(),
                   _buildBoardsTab(),
-                  _buildCollagesTab(),
                 ],
               ),
             ),
@@ -176,50 +154,76 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> with Single
     );
   }
 
-  Widget _buildFilterChip(String label, {bool hasDropdown = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey[300]!),
+  void _showSortOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (hasDropdown) ...[
-            const Icon(Icons.swap_vert, size: 16, color: Colors.black),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(
+                  _sortOrder == 'Most recent' ? Icons.check : null,
+                  color: Colors.black,
+                ),
+                title: const Text('Most recent'),
+                onTap: () {
+                  setState(() => _sortOrder = 'Most recent');
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  _sortOrder == 'Oldest first' ? Icons.check : null,
+                  color: Colors.black,
+                ),
+                title: const Text('Oldest first'),
+                onTap: () {
+                  setState(() => _sortOrder = 'Oldest first');
+                  Navigator.pop(context);
+                },
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildPinsTab() {
     final savedPins = ref.watch(savedPinsProvider);
-    final pins = savedPins.values.toList();
+    var pins = savedPins.values.toList();
     
     if (pins.isEmpty) {
       return const SizedBox.shrink(); // Show nothing when empty
+    }
+    
+    // Sort pins based on selected order
+    // Note: Pins don't have timestamps yet, so we'll sort by ID as a proxy
+    // In a real app, you'd add a savedAt timestamp to track when pins were saved
+    if (_sortOrder == 'Oldest first') {
+      pins = pins.reversed.toList();
     }
     
     return MasonryGrid(photos: pins);
   }
 
   Widget _buildBoardsTab() {
-    final boards = ref.watch(boardsProvider);
+    var boards = ref.watch(boardsProvider);
     final savedPins = ref.watch(savedPinsProvider);
 
     if (boards.isEmpty) {
       return const SizedBox.shrink(); // Show nothing when empty
+    }
+
+    // Sort boards based on selected order
+    if (_sortOrder == 'Oldest first') {
+      boards = boards.reversed.toList();
     }
 
     return GridView.builder(
@@ -313,8 +317,5 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> with Single
     );
   }
 
-  Widget _buildCollagesTab() {
-    // Empty for now - show nothing
-    return const SizedBox.shrink();
-  }
+
 }
