@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
 import '../../data/models/photo_model.dart';
 import '../../presentation/screens/home_screen.dart';
 import '../../presentation/screens/search_screen.dart';
@@ -10,9 +11,34 @@ import '../../presentation/screens/account_settings_screen.dart';
 import '../../presentation/screens/board_detail_screen.dart';
 import '../../presentation/widgets/scaffold_with_navbar.dart';
 import '../../presentation/screens/messages_screen.dart';
+import '../../presentation/screens/auth/welcome_screen.dart';
+import '../../presentation/screens/auth/login_screen.dart';
+import '../../presentation/screens/auth/signup_flow_screen.dart';
+
 
 final router = GoRouter(
   initialLocation: '/',
+  redirect: (context, state) {
+    // Check if user is signed in
+    final user = ClerkAuth.userOf(context);
+    final isSignedIn = user != null;
+    
+    // List of auth routes that don't require authentication
+    final authRoutes = ['/welcome', '/login', '/signup'];
+    final isAuthRoute = authRoutes.contains(state.matchedLocation);
+    
+    // If not signed in and trying to access protected route, redirect to welcome
+    if (!isSignedIn && !isAuthRoute) {
+      return '/welcome';
+    }
+    
+    // If signed in and trying to access auth routes, redirect to home
+    if (isSignedIn && isAuthRoute) {
+      return '/';
+    }
+    
+    return null; // No redirect needed
+  },
   routes: [
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
@@ -90,6 +116,19 @@ final router = GoRouter(
         final boardId = state.pathParameters['id']!;
         return BoardDetailScreen(boardId: boardId);
       },
+    ),
+    // Auth routes
+    GoRoute(
+      path: '/welcome',
+      builder: (context, state) => const WelcomeScreen(),
+    ),
+    GoRoute(
+      path: '/login',
+      builder: (context, state) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/signup',
+      builder: (context, state) => const SignupFlowScreen(),
     ),
   ],
 );

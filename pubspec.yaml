@@ -23,6 +23,7 @@ dependencies:
   clerk_flutter: ^0.0.13-beta
   flutter_dotenv: ^5.1.0
   shared_preferences: ^2.5.2
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:
