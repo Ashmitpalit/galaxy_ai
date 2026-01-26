@@ -8,6 +8,7 @@ import '../../data/models/photo_model.dart';
 import '../providers/saved_pins_provider.dart';
 import '../providers/boards_provider.dart';
 import '../widgets/board_selection_dialog.dart';
+import '../widgets/similar_photos_sheet.dart';
 
 class PinDetailScreen extends ConsumerWidget {
   final PhotoModel photo;
@@ -17,6 +18,32 @@ class PinDetailScreen extends ConsumerWidget {
     required this.photo,
   });
   
+  void _showSimilarPhotos(BuildContext context) {
+    HapticFeedback.lightImpact();
+    
+    // Use alt text or fallback to generic term for search
+    final query = photo.alt ?? photo.photographer;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => SimilarPhotosSheet(
+          query: query ?? 'nature', // Fallback if no alt or photographer
+          scrollController: scrollController,
+        ),
+      ),
+    );
+  }
+
   void _showOptionsMenu(BuildContext context, WidgetRef ref) {
     HapticFeedback.lightImpact();
     
@@ -57,9 +84,7 @@ class PinDetailScreen extends ConsumerWidget {
               subtitle: const Text('Search for similar images'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Finding similar images...')),
-                );
+                _showSimilarPhotos(context);
               },
             ),
             ListTile(
@@ -165,23 +190,37 @@ class PinDetailScreen extends ConsumerWidget {
       body: Column(
         children: [
           Expanded(
-            child: Center(
-              child: Hero(
-                tag: 'photo_${photo.id}',
-                child: InteractiveViewer(
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  child: CachedNetworkImage(
-                    imageUrl: photo.src.large2x,
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) => Container(
-                      color: Color(
-                        int.parse('FF${photo.avgColor.substring(1)}', radix: 16),
+            child: Stack(
+              children: [
+                Center(
+                  child: Hero(
+                    tag: 'photo_${photo.id}',
+                    child: InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      child: CachedNetworkImage(
+                        imageUrl: photo.src.large2x,
+                        fit: BoxFit.contain,
+                        placeholder: (context, url) => Container(
+                          color: Color(
+                            int.parse('FF${photo.avgColor.substring(1)}', radix: 16),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: FloatingActionButton(
+                    heroTag: 'visual_search_${photo.id}',
+                    onPressed: () => _showSimilarPhotos(context),
+                    backgroundColor: Colors.white,
+                    child: const Icon(Icons.search, color: Colors.black),
+                  ),
+                ),
+              ],
             ),
           ),
           Container(

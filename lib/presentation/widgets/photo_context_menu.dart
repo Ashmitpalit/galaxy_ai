@@ -8,6 +8,7 @@ import '../../data/models/photo_model.dart';
 import '../providers/boards_provider.dart';
 import '../providers/saved_pins_provider.dart';
 import 'board_selection_dialog.dart';
+import 'similar_photos_sheet.dart';
 
 class PhotoContextMenu extends ConsumerStatefulWidget {
   final PhotoModel photo;
@@ -74,8 +75,31 @@ class _PhotoContextMenuState extends ConsumerState<PhotoContextMenu>
       case 'similar':
         await _controller.reverse();
         widget.onDismiss();
-        _showSnackBar('Finding similar images...');
-        // TODO: Navigate to similar images search
+        
+        // Show similar photos sheet
+        if (context.mounted) {
+           // Use alt text or fallback to generic term for search
+           final query = widget.photo.alt ?? widget.photo.photographer;
+           
+           showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.white,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              builder: (context) => DraggableScrollableSheet(
+                initialChildSize: 0.6,
+                minChildSize: 0.4,
+                maxChildSize: 0.9,
+                expand: false,
+                builder: (context, scrollController) => SimilarPhotosSheet(
+                  query: query ?? 'nature', // Fallback if no alt or photographer
+                  scrollController: scrollController,
+                ),
+              ),
+            );
+        }
         break;
       case 'share':
         await _controller.reverse();
