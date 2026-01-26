@@ -14,14 +14,20 @@ import '../../presentation/screens/messages_screen.dart';
 import '../../presentation/screens/auth/welcome_screen.dart';
 import '../../presentation/screens/auth/login_screen.dart';
 import '../../presentation/screens/auth/signup_flow_screen.dart';
+import '../../presentation/screens/splash_screen.dart';
 
 
 final router = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/splash',
   redirect: (context, state) {
     // Check if user is signed in
     final user = ClerkAuth.userOf(context);
     final isSignedIn = user != null;
+    
+    // Allow splash screen to show without redirect
+    if (state.matchedLocation == '/splash') {
+      return null;
+    }
     
     // List of auth routes that don't require authentication
     final authRoutes = ['/welcome', '/login', '/signup'];
@@ -129,6 +135,10 @@ final router = GoRouter(
     GoRoute(
       path: '/signup',
       builder: (context, state) => const SignupFlowScreen(),
+    ),
+    GoRoute(
+      path: '/splash',
+      builder: (context, state) => const SplashScreen(),
     ),
   ],
 );
