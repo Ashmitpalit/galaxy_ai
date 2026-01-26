@@ -2,471 +2,526 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'dart:math' as math;
 
 import '../../core/theme/app_theme.dart';
 import '../../data/models/photo_model.dart';
 import '../providers/saved_pins_provider.dart';
 import '../providers/boards_provider.dart';
+import '../providers/photo_providers.dart';
+import '../providers/interaction_provider.dart';
 import '../widgets/board_selection_dialog.dart';
-import '../widgets/similar_photos_sheet.dart';
+import '../widgets/pin_card.dart';
+import '../widgets/pin_shimmer.dart';
+import '../widgets/like_button.dart';
+import '../widgets/comments_sheet.dart';
 
-class PinDetailScreen extends ConsumerWidget {
+class PinDetailScreen extends ConsumerStatefulWidget {
   final PhotoModel photo;
   
   const PinDetailScreen({
     super.key,
     required this.photo,
   });
+
+  @override
+  ConsumerState<PinDetailScreen> createState() => _PinDetailScreenState();
+}
+
+class _PinDetailScreenState extends ConsumerState<PinDetailScreen> {
+  final ScrollController _scrollController = ScrollController();
   
-  void _showSimilarPhotos(BuildContext context) {
-    HapticFeedback.lightImpact();
-    
-    // Use alt text or fallback to generic term for search
-    final query = photo.alt ?? photo.photographer;
-    
+  // Similar photos state
+  List<PhotoModel> _similarPhotos = [];
+  bool _isLoadingSimilar = true;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadSimilarPhotos();
+  }
+  
+  Future<void> _loadSimilarPhotos() async {
+    try {
+      final repository = ref.read(photoRepositoryProvider);
+      final query = widget.photo.alt ?? widget.photo.photographer;
+      final photos = await repository.searchPhotos(
+        query: query ?? 'nature',
+        page: 1,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _similarPhotos = photos;
+          _isLoadingSimilar = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingSimilar = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+  
+  void _showShareSheet(BuildContext context) {
+    HapticFeedback.mediumImpact();
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.transparent, // Transparent for custom look
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.black, // Dark theme as per screenshot
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                const Text(
+                  'Save or share Pin',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 48), // Spacer for centering
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Image Preview
+            Center(
+              child: Container(
+                height: 300,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  image: DecorationImage(
+                    image: CachedNetworkImageProvider(widget.photo.src.large),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+             Center(
+              child: Row(
+                 mainAxisSize: MainAxisSize.min,
+                 children: [
+                   const Icon(Icons.link, color: Colors.white70, size: 16),
+                   const SizedBox(width: 4),
+                   Text(
+                    'Pinterest.com',
+                    style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                  ),
+                 ]
+              ),
+            ),
+            const SizedBox(height: 30),
+            // Action Grid
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildShareAction(Icons.push_pin, 'Save', onTap: () {
+                    Navigator.pop(context);
+                    _savePin(context);
+                }),
+                // Collage removed as requested
+                _buildShareAction(Icons.chat_bubble_outline, 'WhatsApp', color: Colors.green, onTap: () => _showRelaxToast(context)),
+                _buildShareAction(Icons.message_outlined, 'Messenger', color: Colors.blue, onTap: () => _showRelaxToast(context)),
+                _buildShareAction(Icons.message, 'Messages', color: Colors.green, onTap: () => _showRelaxToast(context)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                 _buildShareAction(Icons.link, 'Copy link', onTap: () {
+                    Clipboard.setData(ClipboardData(text: widget.photo.url));
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Link copied!')),
+                    );
+                 }),
+                 _buildShareAction(Icons.email_outlined, 'Message', onTap: () => _showRelaxToast(context)),
+                 _buildShareAction(Icons.more_horiz, 'More apps', onTap: () => _showRelaxToast(context)),
+                 // Spacer to keep grid alignment if needed, or just leave as is
+                 const SizedBox(width: 60), 
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => SimilarPhotosSheet(
-          query: query ?? 'nature', // Fallback if no alt or photographer
-          scrollController: scrollController,
+    );
+  }
+  
+  Widget _buildShareAction(IconData icon, String label, {Color? color, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: color ?? Colors.grey[800],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.white, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRelaxToast(BuildContext context) {
+    Navigator.pop(context); // Close sheet first
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('relax its just a pinterest clone 😂'),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+  
+  Future<void> _savePin(BuildContext context) async {
+      final pinId = widget.photo.id.toString();
+      final isSaved = ref.read(savedPinsProvider).containsKey(pinId);
+
+      if (isSaved) {
+           // Already saved
+           ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Already saved!')),
+           );
+      } else {
+        await showDialog(
+            context: context,
+            builder: (context) => BoardSelectionDialog(photo: widget.photo),
+        );
+      }
+  }
+
+  void _showOptionsMenu(BuildContext context) {
+    // Keep existing logic
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('Share'),
+              onTap: () {
+                Navigator.pop(context);
+                _showShareSheet(context);
+              },
+            ),
+             ListTile(
+              leading: const Icon(Icons.download),
+              title: const Text('Download image'),
+              onTap: () {
+                Navigator.pop(context);
+                // Implementation for download
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.report),
+              title: const Text('Report Pin'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  void _showOptionsMenu(BuildContext context, WidgetRef ref) {
-    HapticFeedback.lightImpact();
-    
-    final pinId = photo.id.toString();
-    final isPinned = ref.read(boardsProvider.notifier).isPinSaved(pinId);
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.search, size: 20),
-              ),
-              title: const Text('Find similar'),
-              subtitle: const Text('Search for similar images'),
-              onTap: () {
-                Navigator.pop(context);
-                _showSimilarPhotos(context);
-              },
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.share_outlined, size: 20),
-              ),
-              title: const Text('Share'),
-              subtitle: const Text('Share this pin'),
-              onTap: () {
-                Navigator.pop(context);
-                _sharePhoto(context);
-              },
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                  size: 20,
-                ),
-              ),
-              title: Text(isPinned ? 'Unpin' : 'Save to board'),
-              subtitle: Text(isPinned ? 'Remove from all boards' : 'Save this pin'),
-              onTap: () async {
-                Navigator.pop(context);
-                
-                if (isPinned) {
-                  // Unpin logic
-                  final boards = ref.read(boardsProvider.notifier).getBoardsContainingPin(pinId);
-                  for (final board in boards) {
-                    await ref.read(boardsProvider.notifier).removePinFromBoard(board.id, pinId);
-                  }
-                  await ref.read(savedPinsProvider.notifier).unsavePin(pinId);
-                  
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Pin removed from all boards')),
-                    );
-                  }
-                } else {
-                  // Show board selection
-                  if (context.mounted) {
-                    await showDialog(
-                      context: context,
-                      builder: (context) => BoardSelectionDialog(photo: photo),
-                    );
-                  }
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Check if pin is saved globally
-    final savedPins = ref.watch(savedPinsProvider);
-    final isSaved = savedPins.containsKey(photo.id.toString());
+  Widget build(BuildContext context) {
+    final pinId = widget.photo.id.toString();
+    final isSaved = ref.watch(savedPinsProvider).containsKey(pinId);
     
     return Scaffold(
       backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          // App Bar (Floating back button)
+          SliverAppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            floating: true,
+            leading: IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
               ),
-              child: const Icon(Icons.more_horiz, color: Colors.black, size: 20),
+              onPressed: () => Navigator.pop(context),
             ),
-            onPressed: () => _showOptionsMenu(context, ref),
+            actions: [
+               IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.more_horiz, color: Colors.black, size: 20),
+                ),
+                onPressed: () => _showOptionsMenu(context),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Stack(
-              children: [
-                Center(
-                  child: Hero(
-                    tag: 'photo_${photo.id}',
-                    child: InteractiveViewer(
-                      minScale: 0.5,
-                      maxScale: 4.0,
-                      child: CachedNetworkImage(
-                        imageUrl: photo.src.large2x,
-                        fit: BoxFit.contain,
-                        placeholder: (context, url) => Container(
-                          color: Color(
-                            int.parse('FF${photo.avgColor.substring(1)}', radix: 16),
-                          ),
-                        ),
-                      ),
+          
+          // Content
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: const BoxDecoration(
+                 color: Colors.white,
+                 borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Image
+                   ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                    child: CachedNetworkImage(
+                      imageUrl: widget.photo.src.large2x,
+                      fit: BoxFit.contain,
+                       placeholder: (context, url) => AspectRatio(
+                            aspectRatio: widget.photo.width/widget.photo.height,
+                            child: Container(
+                                color: Color(int.parse('FF${widget.photo.avgColor.substring(1)}', radix: 16)),
+                            ),
+                       ),
                     ),
                   ),
-                ),
-                Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: FloatingActionButton(
-                    heroTag: 'visual_search_${photo.id}',
-                    onPressed: () => _showSimilarPhotos(context),
-                    backgroundColor: Colors.white,
-                    child: const Icon(Icons.search, color: Colors.black),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(24),
-                topRight: Radius.circular(24),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 8),
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            HapticFeedback.lightImpact();
+                  
+                  // Action Row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Left Icons
+                        Row(
+                          children: [
+                            // Functional Like Button
+                            Consumer(
+                              builder: (context, ref, _) {
+                                final isLiked = ref.watch(isPinLikedProvider(pinId));
+                                final count = ref.watch(likeCountProvider(pinId));
+                                return LikeButton(
+                                  isLiked: isLiked,
+                                  count: count,
+                                  onToggle: () {
+                                     ref.read(likedPinsProvider.notifier).toggleLike(pinId);
+                                  },
+                                );
+                              },
+                            ),
                             
-                            if (isSaved) {
-                              // Show unsave options
-                              final pinId = photo.id.toString();
-                              final boards = ref.read(boardsProvider.notifier).getBoardsContainingPin(pinId);
-                              
-                              showModalBottomSheet(
-                                context: context,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                                ),
-                                builder: (context) => Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 20),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
+                            const SizedBox(width: 20),
+                            
+                            // Functional Comment Button
+                            Consumer(
+                              builder: (context, ref, _) {
+                                final count = ref.watch(commentCountProvider(pinId));
+                                return GestureDetector(
+                                  onTap: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (context) => CommentsSheet(pinId: pinId),
+                                    );
+                                  },
+                                  child: Row(
                                     children: [
-                                      const Padding(
-                                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                        child: Text(
-                                          'Remove pin from:',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      ...boards.map((board) => ListTile(
-                                        leading: const Icon(Icons.dashboard),
-                                        title: Text(board.name),
-                                        subtitle: const Text('Remove from this board'),
-                                        onTap: () async {
-                                          Navigator.pop(context);
-                                          await ref.read(boardsProvider.notifier).removePinFromBoard(board.id, pinId);
-                                          
-                                          // Check if still in other boards
-                                          final stillPinned = ref.read(boardsProvider.notifier).isPinSaved(pinId);
-                                          if (!stillPinned) {
-                                            await ref.read(savedPinsProvider.notifier).unsavePin(pinId);
-                                          }
-                                          
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Removed from ${board.name}')),
-                                            );
-                                          }
-                                        },
-                                      )),
-                                      const Divider(),
-                                      ListTile(
-                                        leading: const Icon(Icons.delete_outline, color: Colors.red),
-                                        title: const Text(
-                                          'Remove from all boards',
-                                          style: TextStyle(color: Colors.red),
-                                        ),
-                                        onTap: () async {
-                                          Navigator.pop(context);
-                                          
-                                          for (final board in boards) {
-                                            await ref.read(boardsProvider.notifier).removePinFromBoard(board.id, pinId);
-                                          }
-                                          await ref.read(savedPinsProvider.notifier).unsavePin(pinId);
-                                          
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Pin removed from all boards')),
-                                            );
-                                          }
-                                        },
+                                      const Icon(Icons.mode_comment_outlined, size: 26),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '$count', 
+                                        style: const TextStyle(fontWeight: FontWeight.w600),
                                       ),
                                     ],
                                   ),
-                                ),
-                              );
-                            } else {
-                              // Show board selection to save
-                              await showDialog(
-                                context: context,
-                                builder: (context) => BoardSelectionDialog(photo: photo),
-                              );
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isSaved ? Colors.grey[300] : AppTheme.pinterestRed,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          icon: Icon(
-                            isSaved ? Icons.push_pin : Icons.push_pin_outlined,
-                            size: 20,
-                            color: isSaved ? Colors.grey[700] : Colors.white,
-                          ),
-                          label: Text(
-                            isSaved ? 'Saved' : 'Save',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: isSaved ? Colors.grey[700] : Colors.white,
+                                );
+                              },
                             ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      IconButton(
-                        onPressed: () {
-                          _sharePhoto(context);
-                        },
-                        icon: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.share, size: 20),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: Colors.grey[300],
-                        child: Text(
-                          photo.photographer[0].toUpperCase(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              photo.photographer,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const Text(
-                              'Photographer',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
-                              ),
+
+                            const SizedBox(width: 20),
+                            
+                             IconButton(
+                                icon: const Icon(Icons.share, size: 26),
+                                onPressed: () => _showShareSheet(context),
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
                             ),
                           ],
                         ),
-                      ),
-                      OutlinedButton(
-                        onPressed: () {
-                          HapticFeedback.lightImpact();
-                        },
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
+                        
+                        // Save Button
+                        ElevatedButton(
+                          onPressed: () => _savePin(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isSaved ? Colors.black : AppTheme.pinterestRed,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: Text(
+                             isSaved ? 'Saved' : 'Save',
+                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                         ),
-                        child: const Text('Follow'),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, size: 20, color: Colors.grey),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${photo.width} × ${photo.height}',
-                        style: const TextStyle(color: Colors.grey),
+                  
+                  // Title/Desc
+                  if (widget.photo.alt != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        widget.photo.alt!,
+                         style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ],
+                    ),
+                    
+                  // Author Info
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                         CircleAvatar(
+                           backgroundColor: Colors.grey[200],
+                           backgroundImage: widget.photo.photographerUrl != null 
+                             ? NetworkImage(widget.photo.photographerUrl!) 
+                             : null,
+                           child: widget.photo.photographerUrl == null 
+                             ? Text(widget.photo.photographer[0]) 
+                             : null,
+                         ),
+                         const SizedBox(width: 12),
+                         Expanded(
+                           child: Column(
+                             crossAxisAlignment: CrossAxisAlignment.start,
+                             children: [
+                               Text(
+                                  widget.photo.photographer,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                               ),
+                               const Text(
+                                  'Followers 12k', // Mock
+                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                               ),
+                             ],
+                           ),
+                         ),
+                         OutlinedButton(
+                           onPressed: () {},
+                           style: OutlinedButton.styleFrom(
+                             shape: const StadiumBorder(),
+                           ),
+                           child: const Text('Follow'),
+                         ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-              ],
+                  
+                  // More to explore
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                    child: const Text(
+                       'More to explore',
+                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [ 'Protective', 'Coily', 'Curly', 'Wavy', 'Straight', 'Braids' ]
+                        .map((tag) => Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          child: Chip(
+                             label: Text(tag),
+                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                             backgroundColor: Colors.grey[200],
+                             side: BorderSide.none,
+                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                             avatar: const Icon(Icons.search, size: 18),
+                          ),
+                        )).toList(),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           ),
+          
+          // Inline Masonry Grid for Similar Photos
+          SliverPadding(
+            padding: const EdgeInsets.all(8),
+             sliver: _isLoadingSimilar
+               ? SliverToBoxAdapter(
+                  child: SizedBox(
+                   height: 200, 
+                   child: Center(child: CircularProgressIndicator())
+                  )
+                 )
+               : SliverMasonryGrid.count(
+                   crossAxisCount: 2,
+                   mainAxisSpacing: 8,
+                   crossAxisSpacing: 8,
+                   childCount: _similarPhotos.length,
+                   itemBuilder: (context, index) {
+                     return PinCard(photo: _similarPhotos[index]);
+                   },
+               ),
+          ),
+          
+           const SliverToBoxAdapter(child: SizedBox(height: 48)),
         ],
-      ),
-    );
-  }
-  
-  void _sharePhoto(BuildContext context) {
-    HapticFeedback.lightImpact();
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.link),
-              title: const Text('Copy link'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Link copied to clipboard')),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.download),
-              title: const Text('Download image'),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
       ),
     );
   }

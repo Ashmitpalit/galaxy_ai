@@ -15,6 +15,8 @@ import '../../presentation/screens/auth/welcome_screen.dart';
 import '../../presentation/screens/auth/login_screen.dart';
 import '../../presentation/screens/auth/signup_flow_screen.dart';
 import '../../presentation/screens/splash_screen.dart';
+import '../../presentation/screens/visual_search_screen.dart';
+import 'package:image_picker/image_picker.dart';
 
 
 final router = GoRouter(
@@ -139,6 +141,13 @@ final router = GoRouter(
     GoRoute(
       path: '/splash',
       builder: (context, state) => const SplashScreen(),
+    ),
+    GoRoute(
+      path: '/visual-search',
+      builder: (context, state) {
+        final imageFile = state.extra as XFile;
+        return VisualSearchScreen(imageFile: imageFile);
+      },
     ),
   ],
 );

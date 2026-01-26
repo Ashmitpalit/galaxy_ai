@@ -65,7 +65,7 @@ class _PinCardState extends State<PinCard> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
           onTap: () {
@@ -74,41 +74,60 @@ class _PinCardState extends State<PinCard> {
           onLongPressStart: (details) {
             _showContextMenu(context, details.globalPosition);
           },
+          // Add scale effect or specialized touch feedback/Hero logic here if desired
           child: Hero(
             tag: 'photo_${widget.photo.id}',
             child: ClipRRect(
               key: _imageKey,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12), // Smoother radius
               child: CachedNetworkImage(
                 imageUrl: widget.photo.src.medium,
                 memCacheWidth: 700,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => PinShimmer(
-                  height: 200 + (widget.photo.height / widget.photo.width) * 50,
+                placeholder: (context, url) => Container(
+                   color: Color(int.parse('FF${widget.photo.avgColor.substring(1)}', radix: 16)),
+                   height: 200, // Placeholder
                 ),
                 errorWidget: (context, url, error) => Container(
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.error),
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.error, color: Colors.grey),
                 ),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 4),
-        InkWell(
-          onTap: () {
-            // Get the position of the three-dot button
-            final RenderBox? buttonBox = context.findRenderObject() as RenderBox?;
-            if (buttonBox != null) {
-              final buttonPosition = buttonBox.localToGlobal(Offset.zero);
-              // Trigger the same context menu as long-press
-              _showContextMenu(context, buttonPosition);
-            }
-          },
-          child: const Padding(
-            padding: EdgeInsets.all(4.0),
-            child: Icon(Icons.more_horiz, size: 20, color: Colors.black),
-          ),
+        const SizedBox(height: 6),
+        // Title and Options Row
+        Row(
+           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+           crossAxisAlignment: CrossAxisAlignment.start,
+           children: [
+             Expanded(
+               child: Text(
+                 widget.photo.alt ?? '',
+                 maxLines: 2,
+                 overflow: TextOverflow.ellipsis,
+                 style: const TextStyle(
+                   fontSize: 12,
+                   fontWeight: FontWeight.w600,
+                   color: Colors.black87,
+                 ),
+               ),
+             ),
+             InkWell(
+              onTap: () {
+                final RenderBox? buttonBox = context.findRenderObject() as RenderBox?;
+                if (buttonBox != null) {
+                  final buttonPosition = buttonBox.localToGlobal(Offset.zero);
+                  _showContextMenu(context, buttonPosition);
+                }
+              },
+              child: const Padding(
+                padding: EdgeInsets.only(left: 4, bottom: 4),
+                child: Icon(Icons.more_horiz, size: 16, color: Colors.black54),
+              ),
+            ),
+           ],
         ),
       ],
     );

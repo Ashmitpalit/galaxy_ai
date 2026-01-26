@@ -16,42 +16,52 @@ class ScaffoldWithNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: Theme(
-        data: Theme.of(context).copyWith(
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.transparent)), 
+          // Removed top border for seamless look, or make it very light
         ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.black,
-          unselectedItemColor: Colors.grey,
-          showSelectedLabels: false,
-          showUnselectedLabels: false,
-          currentIndex: navigationShell.currentIndex,
-          items: [
-            BottomNavigationBarItem(
-              icon: Icon(navigationShell.currentIndex == 0 ? Icons.home : Icons.home_outlined, size: 30),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(navigationShell.currentIndex == 1 ? Icons.search : Icons.search_outlined, size: 30),
-              label: 'Search',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.add, size: 30),
-              label: 'Create',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(navigationShell.currentIndex == 3 ? Icons.message : Icons.message_outlined, size: 28),
-              label: 'Messages',
-            ),
-            BottomNavigationBarItem(
-              icon: _buildProfileIcon(context, navigationShell.currentIndex == 4),
-              label: 'Profile',
-            ),
-          ],
-          onTap: (index) => _onTap(context, index),
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+          ),
+          child: BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            elevation: 0, // Flat look
+            selectedItemColor: Colors.black,
+            unselectedItemColor: Colors.grey[400],
+            selectedFontSize: 10,
+            unselectedFontSize: 10,
+            showSelectedLabels: true, // Optional: Pinterest often shows labels
+            showUnselectedLabels: true,
+            currentIndex: navigationShell.currentIndex,
+            items: [
+              BottomNavigationBarItem(
+                icon: Icon(navigationShell.currentIndex == 0 ? Icons.home : Icons.home_outlined),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(navigationShell.currentIndex == 1 ? Icons.search : Icons.search_outlined),
+                label: 'Search',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.add),
+                label: 'Create',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(navigationShell.currentIndex == 3 ? Icons.message : Icons.message_outlined),
+                label: 'Messages',
+              ),
+              BottomNavigationBarItem(
+                icon: _buildProfileIcon(context, navigationShell.currentIndex == 4),
+                label: 'Profile',
+              ),
+            ],
+            onTap: (index) => _onTap(context, index),
+          ),
         ),
       ),
     );

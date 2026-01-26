@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import '../../data/models/photo_model.dart';
 import '../providers/boards_provider.dart';
 import '../providers/saved_pins_provider.dart';
+import '../providers/interaction_provider.dart';
 import 'board_selection_dialog.dart';
 import 'similar_photos_sheet.dart';
 
@@ -101,10 +102,19 @@ class _PhotoContextMenuState extends ConsumerState<PhotoContextMenu>
             );
         }
         break;
+      case 'like':
+        final pinId = widget.photo.id.toString();
+        ref.read(likedPinsProvider.notifier).toggleLike(pinId);
+        
+        // Give a short delay to see the change if we want, or just dismiss
+        // For now, let's dismiss to keep flow fast
+        await _controller.reverse();
+        widget.onDismiss();
+        break;
       case 'share':
         await _controller.reverse();
         widget.onDismiss();
-        _showSnackBar('Share feature coming soon!');
+        _showSnackBar('relax its just a pinterest clone 😂');
         // TODO: Implement share functionality
         break;
       case 'save':
@@ -290,9 +300,16 @@ class _PhotoContextMenuState extends ConsumerState<PhotoContextMenu>
     
     final pinId = widget.photo.id.toString();
     final isPinned = ref.watch(boardsProvider.notifier).isPinSaved(pinId);
+    final isLiked = ref.watch(isPinLikedProvider(pinId));
     
     final buttons = [
       {'icon': Icons.search, 'label': 'Similar', 'action': 'similar'},
+      {
+        'icon': isLiked ? Icons.favorite : Icons.favorite_border,
+        'label': 'Like',
+        'action': 'like',
+        'color': isLiked ? Colors.red : Colors.black87,
+      },
       {'icon': Icons.share_outlined, 'label': 'Share', 'action': 'share'},
       {
         'icon': isPinned ? Icons.push_pin : Icons.push_pin_outlined,
@@ -323,6 +340,7 @@ class _PhotoContextMenuState extends ConsumerState<PhotoContextMenu>
             child: _buildActionButton(
               icon: button['icon'] as IconData,
               label: button['label'] as String,
+              color: button.containsKey('color') ? button['color'] as Color : Colors.black87,
               onTap: () => _handleAction(button['action'] as String),
             ),
           ),
@@ -335,6 +353,7 @@ class _PhotoContextMenuState extends ConsumerState<PhotoContextMenu>
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    Color color = Colors.black87,
   }) {
     return Material(
       color: Colors.transparent,
@@ -359,7 +378,7 @@ class _PhotoContextMenuState extends ConsumerState<PhotoContextMenu>
           child: Icon(
             icon,
             size: 28,
-            color: Colors.black87,
+            color: color,
           ),
         ),
       ),

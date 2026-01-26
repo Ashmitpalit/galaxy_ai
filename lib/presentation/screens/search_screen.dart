@@ -1,10 +1,18 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/constants/ui_constants.dart';
+import '../../data/models/photo_model.dart';
 
 import '../providers/photo_providers.dart';
 import '../providers/user_preferences_providers.dart';
 import '../widgets/masonry_grid.dart';
+import '../widgets/search/trending_carousel.dart';
+import '../widgets/search/ideas_for_you.dart';
+import '../widgets/search/popular_sliver_grid.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -16,11 +24,14 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final ImagePicker _picker = ImagePicker();
+  bool _isSearching = false;
   
   @override
   void initState() {
     super.initState();
-    _focusNode.requestFocus();
+    // Don't auto-focus on landing to show the beautiful UI
+    // _focusNode.requestFocus(); 
   }
   
   @override
@@ -32,18 +43,71 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   
   void _performSearch(String query) {
     if (query.trim().isNotEmpty) {
+      setState(() {
+        _isSearching = true;
+      });
       ref.read(searchPhotosProvider.notifier).search(query.trim());
       // Record search history for Home Tabs
       ref.read(searchHistoryProvider.notifier).addSearch(query.trim());
     }
   }
+
+  Future<void> _handleCameraClick() async {
+    // Check permissions
+    var status = await Permission.camera.status;
+    if (status.isDenied) {
+      // We haven't asked for permission yet or the permission has been denied before but not permanently.
+      status = await Permission.camera.request();
+    }
+
+    if (status.isPermanentlyDenied) {
+      if (mounted) {
+        _showPermissionDialog();
+      }
+      return;
+    }
+
+    if (status.isGranted) {
+      try {
+        final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+        if (photo != null) {
+          if (mounted) {
+            context.push('/visual-search', extra: photo);
+          }
+        }
+      } catch (e) {
+        debugPrint('Error picking image: $e');
+      }
+    }
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Camera Permission'),
+        content: const Text('This app needs camera access to search by image. Please enable it in settings.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            }, 
+            child: const Text('Settings')
+          ),
+        ],
+      ),
+    );
+  }
+
+
   
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchPhotosProvider);
     final searchHistory = ref.watch(searchHistoryProvider.notifier);
     final recentSearches = searchHistory.getRecentSearches(10);
-    final personalizedPredictions = ref.watch(homeTabsProvider).where((tag) => tag != 'All').take(6).toList();
     
     return Scaffold(
       appBar: AppBar(
@@ -70,14 +134,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         _searchController.clear();
                         // Clear search results - go back to empty state
                         ref.read(searchPhotosProvider.notifier).search('');
-                        setState(() {});
+                        setState(() {
+                          _isSearching = false;
+                        });
+                        _focusNode.unfocus();
                       },
                     ),
                   IconButton(
                     icon: const Icon(Icons.camera_alt, color: Colors.black),
-                    onPressed: () {
-                      // Camera functionality placeholder
-                    },
+                    onPressed: _handleCameraClick,
                   ),
                 ],
               ),
@@ -85,172 +150,148 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               contentPadding: const EdgeInsets.symmetric(vertical: 14),
             ),
             onChanged: (value) {
-              setState(() {});
+               // Optional: Live search logic
             },
           ),
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Search History Dropdown (shown when focused)
-          if (_focusNode.hasFocus && recentSearches.isNotEmpty)
-            Container(
-              decoration: BoxDecoration(
+          // Content Layer
+          _isSearching 
+            ? _buildSearchResults(searchState) 
+            : _buildLandingPage(),
+            
+          // Search History Overlay (only when strictly focused and not fully searching yet)
+          // or we can treat focusing as "searching" state but with empty query.
+          // For Pinterest Style: clicking search bar usually shows history immediately masking the landing page.
+          if (_focusNode.hasFocus && _searchController.text.isEmpty && recentSearches.isNotEmpty)
+            Positioned.fill(
+              child: Container(
                 color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Recent Searches',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () async {
-                            await searchHistory.clearAll();
-                            setState(() {});
-                          },
-                          child: const Text(
-                            'Clear All',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.red,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ...recentSearches.map((search) => InkWell(
-                    onTap: () {
-                      _searchController.text = search;
-                      _performSearch(search);
-                      _focusNode.unfocus();
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.history, size: 20, color: Colors.grey),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              search,
-                              style: const TextStyle(fontSize: 15),
-                            ),
-                          ),
-                          const Icon(Icons.north_west, size: 16, color: Colors.grey),
-                        ],
-                      ),
-                    ),
-                  )),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            ),
-          
-          // Main Content
-          Expanded(
-            child: searchState.when(
-              data: (photos) {
-                if (photos.isEmpty && _searchController.text.isNotEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search_off, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          'No results found',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                
-                if (photos.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.search, size: 64, color: Colors.grey),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Search for ideas',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 24),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
-                          children: personalizedPredictions.map((tag) => _buildSuggestionChip(tag)).toList(),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                
-                return MasonryGrid(
-                  photos: photos,
-                  onLoadMore: () {
-                    ref.read(searchPhotosProvider.notifier).loadMore();
-                  },
-                );
-              },
-              loading: () => MasonryGrid(
-                photos: const [],
-                isLoading: true,
-              ),
-              error: (error, stack) => Center(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.grey),
-                    const SizedBox(height: 16),
-                    Text(
-                      error.toString(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.grey),
-                    ),
+                    _buildRecentSearches(recentSearches, searchHistory),
                   ],
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
   }
-  
-  Widget _buildSuggestionChip(String label) {
-    return ActionChip(
-      label: Text(label),
-      onPressed: () {
-        _searchController.text = label;
-        _performSearch(label);
+
+  Widget _buildLandingPage() {
+    return CustomScrollView(
+      slivers: [
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        const SliverToBoxAdapter(child: TrendingCarousel()),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        const SliverToBoxAdapter(child: IdeasForYou()),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'Popular on Pinterest',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        const PopularSliverGrid(),
+      ],
+    );
+  }
+
+  Widget _buildSearchResults(AsyncValue<List<PhotoModel>> searchState) {
+    return searchState.when(
+      data: (photos) {
+        if (photos.isEmpty) {
+           return _buildScrollableCenter([
+            const Icon(Icons.search_off, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text(
+              'No results found',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+          ]);
+        }
+        return MasonryGrid(
+          photos: photos, 
+          onLoadMore: () {
+            ref.read(searchPhotosProvider.notifier).loadMore();
+          },
+        );
       },
-      backgroundColor: Colors.grey[200],
-      labelStyle: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      loading: () => MasonryGrid(photos: const [], isLoading: true),
+      error: (e, s) => Center(child: Text('Error: $e')),
+    );
+  }
+
+  Widget _buildRecentSearches(List<String> searches, dynamic historyNotifier) {
+     return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Recent Searches',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await historyNotifier.clearAll();
+                    setState(() {});
+                  },
+                  child: const Text('Clear All', style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            ),
+          ),
+          ...searches.map((search) => InkWell(
+            onTap: () {
+              _searchController.text = search;
+              _performSearch(search);
+              _focusNode.unfocus();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.history, size: 20, color: Colors.grey),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(search, style: const TextStyle(fontSize: 15))),
+                  const Icon(Icons.north_west, size: 16, color: Colors.grey),
+                ],
+              ),
+            ),
+          )),
+        ],
+     );
+  }
+
+  Widget _buildScrollableCenter(List<Widget> children) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: children,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -40,7 +40,15 @@
 			<string>UIInterfaceOrientationPortraitUpsideDown</string>
 			<string>UIInterfaceOrientationLandscapeLeft</string>
 			<string>UIInterfaceOrientationLandscapeRight</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>This app needs access to your photo library to save and share Pins.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>This app needs access to your camera to search for visual matches.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>This app needs microphone access for video recording.</string>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
