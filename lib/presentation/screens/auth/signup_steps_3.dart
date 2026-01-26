@@ -182,7 +182,6 @@ class _LoadingStepState extends ConsumerState<LoadingStep> {
         // Then show "Tuning your feed..." for 2 seconds before navigating
         Future.delayed(const Duration(milliseconds: 2000), () {
           if (mounted) {
-            // TODO: Create account with Clerk
             context.go('/');
           }
         });

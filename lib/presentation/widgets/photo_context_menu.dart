@@ -115,7 +115,6 @@ class _PhotoContextMenuState extends ConsumerState<PhotoContextMenu>
         await _controller.reverse();
         widget.onDismiss();
         _showSnackBar('relax its just a pinterest clone 😂');
-        // TODO: Implement share functionality
         break;
       case 'save':
         final pinId = widget.photo.id.toString();
